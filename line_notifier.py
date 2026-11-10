@@ -1,38 +1,24 @@
 """
 LINE Notifier Module
-Sends the Cyber Threat Intelligence Daily Digest directly to LINE chat via Messaging API
+Sends the Cyber Threat Intelligence Daily Digest notification to LINE chat via Messaging API
 using Broadcast (all followers) or Push (specific user/group ID).
 """
 from datetime import datetime
-import json
-from typing import Dict, List
+from typing import Dict, List, Optional
 import requests
 
 GITHUB_ACTIONS_URL = "https://github.com/Nuttoza/cyber-news-digest/actions"
 
-def format_line_message(articles: List[Dict[str, str]], repo_url: str = GITHUB_ACTIONS_URL) -> str:
-    """Formats the top 5 articles into a clean message with Git download link."""
+def format_line_message(articles: Optional[List[Dict[str, str]]] = None, repo_url: str = GITHUB_ACTIONS_URL) -> str:
+    """Formats a concise notification containing only the date and the download link."""
     today_str = datetime.now().strftime("%d/%m/%Y")
-    lines = [
-        f"ข่าวทางไซเบอร์ประจำวันที่ {today_str}\n"
-    ]
+    return f"ข่าวทางไซเบอร์ประจำวันที่ {today_str}\n{repo_url}"
 
-    for idx, item in enumerate(articles, 1):
-        lines.append(f"{idx}. หัวข้อเรื่อง: {item.get('title', '')}")
-        lines.append(f"สรุป: {item.get('summary', '')}")
-        lines.append(f"IOC: {item.get('iocs', 'ไม่มี')}")
-        lines.append(f"link: {item.get('link', '')}\n")
-
-    lines.append("ดาวน์โหลดไฟล์เอกสารฉบับเต็ม (PDF / Word):")
-    lines.append(repo_url)
-
-    return "\n".join(lines).strip()
-
-def send_to_line(access_token: str, articles: List[Dict[str, str]], user_id: str = "") -> bool:
+def send_to_line(access_token: str, articles: Optional[List[Dict[str, str]]] = None, user_id: str = "") -> bool:
     """
-    Sends the digest to LINE.
-    If user_id is provided, sends via Push (works for User ID 'U...' and Group ID 'C...').
-    Otherwise, sends via Broadcast to all users who added the bot.
+    Sends the concise notification to LINE.
+    If user_id is provided, sends via Push (User ID 'U...' or Group ID 'C...').
+    Otherwise, sends via Broadcast to all users/groups who added the bot.
     """
     if not access_token or not access_token.strip():
         print("[-] LINE notification skipped: No access token provided.")
@@ -65,7 +51,7 @@ def send_to_line(access_token: str, articles: List[Dict[str, str]], user_id: str
     try:
         response = requests.post(url, headers=headers, json=payload, timeout=20)
         if response.status_code == 200:
-            print(f"[+] ส่งสรุปข่าวเข้า LINE สำเร็จ ({method_name})")
+            print(f"[+] ส่งข้อความเข้า LINE สำเร็จ ({method_name})")
             return True
         else:
             print(f"[-] แจ้งเตือน LINE ล้มเหลว (HTTP {response.status_code}): {response.text}")
