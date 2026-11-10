@@ -21,7 +21,7 @@ def load_config() -> dict:
     default_config = {
         "gemini_api_key": "",
         "gemini_model": "gemini-3.1-flash-lite",
-        "time_window_hours": 48,
+        "time_window_hours": 24,
         "target_articles_count": 5,
         "output_dir": "output",
         "feed_sources": []
@@ -74,7 +74,7 @@ def convert_to_pdf(docx_path: str, pdf_path: str) -> bool:
 
 def main():
     parser = argparse.ArgumentParser(description="Cyber Threat News Aggregator & Thai Summarizer")
-    parser.add_argument("--hours", type=int, help="Time window in hours (default: 48)")
+    parser.add_argument("--hours", type=int, help="Time window in hours (default: 24)")
     parser.add_argument("--count", type=int, help="Number of top stories (default: 5)")
     parser.add_argument("--output-dir", type=str, help="Output directory for reports")
     parser.add_argument("--api-key", type=str, help="Gemini API Key override")
@@ -82,7 +82,7 @@ def main():
 
     config = load_config()
 
-    hours = args.hours or config.get("time_window_hours", 48)
+    hours = args.hours or config.get("time_window_hours", 24)
     count = args.count or config.get("target_articles_count", 5)
     output_dir = args.output_dir or os.path.join(BASE_DIR, config.get("output_dir", "output"))
     
@@ -91,7 +91,7 @@ def main():
     feed_sources = config.get("feed_sources", [])
 
     print("================================================================================")
-    print("รายงานสรุปข่าวภัยคุกคามทางไซเบอร์ประจำวัน (รอบ 24-48 ชม.)")
+    print("รายงานสรุปข่าวภัยคุกคามทางไซเบอร์ประจำวัน (รอบ 24 ชม.)")
     print(f"ช่วงเวลาย้อนหลัง: {hours} ชั่วโมง | จำนวนข่าวที่ต้องการ: {count} ข่าว")
     line_token = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN") or config.get("line_channel_access_token", "")
     line_user_id = os.environ.get("LINE_USER_ID") or config.get("line_user_id", "")
