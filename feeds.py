@@ -108,7 +108,7 @@ def is_duplicate_title(title: str, existing_titles: List[str]) -> bool:
             return True
     return False
 
-def fetch_feed_articles(source_name: str, feed_url: str, time_window_hours: int = 48) -> List[Dict[str, Any]]:
+def fetch_feed_articles(source_name: str, feed_url: str, time_window_hours: int = 24) -> List[Dict[str, Any]]:
     """Fetches and parses articles from a single RSS feed within the given time window."""
     articles = []
     ssl_context = ssl._create_unverified_context()
@@ -152,7 +152,7 @@ def fetch_feed_articles(source_name: str, feed_url: str, time_window_hours: int 
 
     return articles
 
-def get_top_cyber_news(feed_sources: List[Dict[str, Any]], time_window_hours: int = 48, top_n: int = 5) -> List[Dict[str, Any]]:
+def get_top_cyber_news(feed_sources: List[Dict[str, Any]], time_window_hours: int = 24, top_n: int = 5) -> List[Dict[str, Any]]:
     """Aggregates all enabled feeds, deduplicates, and returns top N highest scored articles."""
     all_articles = []
     for source in feed_sources:
