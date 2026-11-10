@@ -1,0 +1,45 @@
+name: Daily Cyber Threat News Digest
+
+on:
+  schedule:
+    # รันอัตโนมัติทุกวันเวลา 07:00 น. (เวลาไทย) / 00:00 UTC
+    - cron: '0 0 * * *'
+  workflow_dispatch: # ปุ่มกดรันเองได้ตลอดเวลา
+
+jobs:
+  run-digest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install System Dependencies (LibreOffice & Thai Fonts)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libreoffice fonts-thai-tlwg
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Cyber Threat News Aggregator & Send to LINE
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
+          LINE_USER_ID: ${{ secrets.LINE_USER_ID }}
+        run: |
+          python main.py
+
+      - name: Upload Daily Digest Reports (Word & PDF)
+        uses: actions/upload-artifact@v4
+        with:
+          name: cyber-threat-digest-${{ github.run_number }}
+          path: output/
+          retention-days: 30
