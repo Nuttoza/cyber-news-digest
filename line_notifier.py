@@ -1,19 +1,20 @@
 """
 LINE Notifier Module
 Sends the Cyber Threat Intelligence Daily Digest directly to LINE chat via Messaging API
-using Broadcast (all followers) or Push (specific user ID).
+using Broadcast (all followers) or Push (specific user/group ID).
 """
 from datetime import datetime
 import json
 from typing import Dict, List
 import requests
 
-def format_line_message(articles: List[Dict[str, str]]) -> str:
-    """Formats the top 5 articles into a clean message suitable for mobile LINE chat."""
+GITHUB_ACTIONS_URL = "https://github.com/Nuttoza/cyber-news-digest/actions"
+
+def format_line_message(articles: List[Dict[str, str]], repo_url: str = GITHUB_ACTIONS_URL) -> str:
+    """Formats the top 5 articles into a clean message with Git download link."""
     today_str = datetime.now().strftime("%d/%m/%Y")
     lines = [
-        f"รายงานสรุปข่าวภัยคุกคามทางไซเบอร์ประจำวัน",
-        f"วันที่จัดทำ: {today_str}\n"
+        f"ข่าวทางไซเบอร์ประจำวันที่ {today_str}\n"
     ]
 
     for idx, item in enumerate(articles, 1):
@@ -22,12 +23,15 @@ def format_line_message(articles: List[Dict[str, str]]) -> str:
         lines.append(f"IOC: {item.get('iocs', 'ไม่มี')}")
         lines.append(f"link: {item.get('link', '')}\n")
 
+    lines.append("ดาวน์โหลดไฟล์เอกสารฉบับเต็ม (PDF / Word):")
+    lines.append(repo_url)
+
     return "\n".join(lines).strip()
 
 def send_to_line(access_token: str, articles: List[Dict[str, str]], user_id: str = "") -> bool:
     """
     Sends the digest to LINE.
-    If user_id starts with 'U' and is 33 chars, sends via Push.
+    If user_id is provided, sends via Push (works for User ID 'U...' and Group ID 'C...').
     Otherwise, sends via Broadcast to all users who added the bot.
     """
     if not access_token or not access_token.strip():
@@ -49,8 +53,8 @@ def send_to_line(access_token: str, articles: List[Dict[str, str]], user_id: str
         ]
     }
 
-    # Decide between Push (specific User ID) or Broadcast (all friends)
-    if user_id and user_id.startswith("U") and len(user_id) == 33:
+    # Decide between Push (specific User/Group ID) or Broadcast (all friends)
+    if user_id and len(user_id) == 33 and (user_id.startswith("U") or user_id.startswith("C")):
         url = "https://api.line.me/v2/bot/message/push"
         payload["to"] = user_id
         method_name = f"Push to {user_id}"
