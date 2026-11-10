@@ -1,0 +1,46 @@
+{
+  "gemini_api_key": "AQ.Ab8RN6LTwDBYxBLwsiDfOw8xRszwps0_oc1e22wfF0aE4uxSng",
+  "gemini_model": "gemini-3.1-flash-lite",
+  "line_channel_access_token": "3YXrkVAKiDNYvii4IMDbNrAM48wL0ceJ+6IuooD/6VyqcqNeUfcd/taSDkAIedCsnldidrgszxR85bP1EpOZHRdsPaiZdB/AbArogGYiI/7F/kjIA0943bNeKsoWhqQ+e5iyB7TGoPaGTa+3iSPMFQdB04t89/1O/w1cDnyilFU=",
+  "line_user_id": "",
+  "time_window_hours": 48,
+  "target_articles_count": 5,
+  "output_dir": "output",
+  "feed_sources": [
+    {
+      "name": "The Hacker News",
+      "url": "https://feeds.feedburner.com/TheHackersNews",
+      "enabled": true
+    },
+    {
+      "name": "BleepingComputer",
+      "url": "https://www.bleepingcomputer.com/feed/",
+      "enabled": true
+    },
+    {
+      "name": "SecurityWeek",
+      "url": "https://www.securityweek.com/feed/",
+      "enabled": true
+    },
+    {
+      "name": "The Record (Recorded Future)",
+      "url": "https://therecord.media/feed",
+      "enabled": true
+    },
+    {
+      "name": "Dark Reading",
+      "url": "https://www.darkreading.com/rss.xml",
+      "enabled": true
+    },
+    {
+      "name": "WeLiveSecurity (ESET)",
+      "url": "https://www.welivesecurity.com/feed/",
+      "enabled": true
+    },
+    {
+      "name": "Krebs on Security",
+      "url": "https://krebsonsecurity.com/feed/",
+      "enabled": true
+    }
+  ]
+}
