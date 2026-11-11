@@ -11,7 +11,6 @@ import sys
 
 from docx_generator import create_cyber_digest_docx
 from feeds import get_top_cyber_news
-from line_notifier import send_to_line
 from summarizer import process_all_articles
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -93,12 +92,10 @@ def main():
     print("================================================================================")
     print("รายงานสรุปข่าวภัยคุกคามทางไซเบอร์ประจำวัน (รอบ 24 ชม.)")
     print(f"ช่วงเวลาย้อนหลัง: {hours} ชั่วโมง | จำนวนข่าวที่ต้องการ: {count} ข่าว")
-    line_token = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN") or config.get("line_channel_access_token", "")
-    line_user_id = os.environ.get("LINE_USER_ID") or config.get("line_user_id", "")
-    print(f"AI Model: {model_name} | API Key ตรวจพบ: {'ใช่ (เชื่อมต่อ AI)' if api_key.strip() else 'ยังไม่ได้ระบุ (ใช้ Heuristic Fallback)'} | LINE: {'เปิดใช้งาน' if line_token.strip() else 'ปิด'}")
+    print(f"AI Model: {model_name} | API Key ตรวจพบ: {'ใช่ (เชื่อมต่อ AI)' if api_key.strip() else 'ยังไม่ได้ระบุ (ใช้ Heuristic Fallback)'}")
     print("================================================================================")
 
-    print("\n[1/4] กำลังดึงข่าวจากแหล่งข้อมูลระดับโลก (RSS Feeds)...")
+    print("\n[1/3] กำลังดึงข่าวจากแหล่งข้อมูลระดับโลก (RSS Feeds)...")
     raw_articles = get_top_cyber_news(feed_sources, time_window_hours=hours, top_n=count)
     if not raw_articles:
         print("[-] ไม่พบข่าวใหม่ในช่วงเวลาดังกล่าว")
@@ -106,7 +103,7 @@ def main():
 
     print(f"[+] คัดเลือกข่าวที่มีนัยสำคัญระดับสูงได้ {len(raw_articles)} ข่าว")
 
-    print("\n[2/4] กำลังวิเคราะห์ แปลสรุปภาษาไทย 1-2 บรรทัด และสกัด IOC...")
+    print("\n[2/3] กำลังวิเคราะห์ แปลสรุปภาษาไทย วิเคราะห์ผลกระทบความมั่นคงไทย และสกัด IOC...")
     processed = process_all_articles(raw_articles, api_key=api_key, model_name=model_name)
 
     print("\n================================================================================")
@@ -116,10 +113,14 @@ def main():
         print(f"\n{idx}. หัวข้อเรื่อง: {item['title']}")
         print(f"สรุป: {item['summary']}")
         print(f"IOC: {item['iocs']}")
+        if item.get("thai_security_impact"):
+            print(f"ผลกระทบต่อหน่วยงานความมั่นคงของไทย: {item['thai_security_impact']}")
+        if item.get("soc_recommendation"):
+            print(f"แนวทางปฏิบัติสำหรับทีม SOC: {item['soc_recommendation']}")
         print(f"link: {item['link']}")
 
     print("\n================================================================================")
-    print("\n[3/4] กำลังสร้างเอกสาร Word (.docx) และส่งออกเป็น PDF (.pdf)...")
+    print("\n[3/3] กำลังสร้างเอกสาร Word (.docx) และส่งออกเป็น PDF (.pdf)...")
     today_str = datetime.now().strftime("%Y-%m-%d")
     docx_file = os.path.join(output_dir, f"Cyber_Threat_Digest_{today_str}.docx")
     pdf_file = os.path.join(output_dir, f"Cyber_Threat_Digest_{today_str}.pdf")
@@ -134,13 +135,6 @@ def main():
         print(f"[+] บันทึกเอกสาร PDF (.pdf) เรียบร้อย: {pdf_file}")
     else:
         print("[-] ไม่สามารถแปลงเป็นไฟล์ PDF ได้ กรุณาเปิดไฟล์ .docx ในโปรแกรม Word แล้ว Save as PDF")
-
-    # 3. Send to LINE
-    if line_token.strip():
-        print("\n[4/4] กำลังส่งสรุปข่าวเข้า LINE...")
-        send_to_line(line_token, processed, user_id=line_user_id)
-    else:
-        print("\n[4/4] ข้ามการส่ง LINE (ยังไม่ได้ใส่ Channel access token)")
 
     print("\nเสร็จสิ้นภารกิจประจำวันเรียบร้อยครับ!")
 
