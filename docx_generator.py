@@ -242,6 +242,34 @@ def create_cyber_digest_docx(articles: List[Dict[str, str]], output_path: str, d
         ioc_val = ioc_p.add_run(item.get("iocs", "ไม่มี"))
         apply_thai_font(ioc_val, size_pt=14, color_rgb=RGBColor(60, 60, 60))
 
+        # Thai National Security Impact Paragraph
+        sec_impact = item.get("thai_security_impact", "").strip()
+        if sec_impact:
+            sec_p = doc.add_paragraph()
+            sec_p.paragraph_format.left_indent = Inches(0.25)
+            sec_p.paragraph_format.space_before = Pt(2)
+            sec_p.paragraph_format.space_after = Pt(2)
+
+            sec_label = sec_p.add_run("ผลกระทบต่อหน่วยงานความมั่นคงของไทย: ")
+            apply_thai_font(sec_label, size_pt=15, bold=True, color_rgb=RGBColor(160, 30, 30))
+
+            sec_val = sec_p.add_run(sec_impact)
+            apply_thai_font(sec_val, size_pt=15, color_rgb=RGBColor(30, 30, 30))
+
+        # SOC Recommendation Paragraph
+        soc_rec = item.get("soc_recommendation", "").strip()
+        if soc_rec:
+            soc_p = doc.add_paragraph()
+            soc_p.paragraph_format.left_indent = Inches(0.25)
+            soc_p.paragraph_format.space_before = Pt(2)
+            soc_p.paragraph_format.space_after = Pt(2)
+
+            soc_label = soc_p.add_run("แนวทางปฏิบัติสำหรับทีม SOC: ")
+            apply_thai_font(soc_label, size_pt=15, bold=True, color_rgb=RGBColor(20, 100, 160))
+
+            soc_val = soc_p.add_run(soc_rec)
+            apply_thai_font(soc_val, size_pt=15, color_rgb=RGBColor(30, 30, 30))
+
         # Link Paragraph
         link_p = doc.add_paragraph()
         link_p.paragraph_format.left_indent = Inches(0.25)
