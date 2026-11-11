@@ -2,9 +2,12 @@ name: Daily Cyber Threat News Digest
 
 on:
   schedule:
-    # รันอัตโนมัติทุกวันเวลา 07:00 น. (เวลาไทย) / 00:00 UTC
+    # รันอัตโนมัติทุกวันเวลา 02:00 น. (เวลาไทย) / 19:00 UTC
     - cron: '0 19 * * *'
   workflow_dispatch: # ปุ่มกดรันเองได้ตลอดเวลา
+
+permissions:
+  contents: write
 
 jobs:
   run-digest:
@@ -29,17 +32,15 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run Cyber Threat News Aggregator & Send to LINE
+      - name: Run Cyber Threat News Aggregator & Generate Reports
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
-          LINE_USER_ID: ${{ secrets.LINE_USER_ID }}
         run: |
           python main.py
 
-      - name: Upload Daily Digest Reports (Word & PDF)
-        uses: actions/upload-artifact@v4
+      - name: Publish Daily Release for Team Download
+        uses: softprops/action-gh-release@v2
         with:
-          name: cyber-threat-digest-${{ github.run_number }}
-          path: output/
-          retention-days: 30
+          tag_name: digest-${{ github.run_number }}
+          name: "รายงานข่าวไซเบอร์ประจำวัน (รอบที่ ${{ github.run_number }})"
+          files: output/*
