@@ -39,7 +39,10 @@ def call_gemini_api(api_key: str, model_name: str, article: Dict[str, Any]) -> D
         if fallback_model not in candidate_models:
             candidate_models.append(fallback_model)
 
-    headers = {"Content-Type": "application/json"}
+    headers = {
+        "Content-Type": "application/json",
+        "X-goog-api-key": api_key.strip()
+    }
     user_content = f"""วิเคราะห์ข่าวไซเบอร์ต่อไปนี้:
 ชื่อข่าว: {article.get('title', '')}
 แหล่งที่มา: {article.get('source', '')}
@@ -63,7 +66,7 @@ def call_gemini_api(api_key: str, model_name: str, article: Dict[str, Any]) -> D
 
     last_error = None
     for model in candidate_models:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
         for attempt in range(2):
             try:
                 response = requests.post(url, headers=headers, json=payload, timeout=25)
