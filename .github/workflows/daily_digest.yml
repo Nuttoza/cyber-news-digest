@@ -44,3 +44,21 @@ jobs:
           tag_name: digest-${{ github.run_number }}
           name: "รายงานข่าวไซเบอร์ประจำวัน (รอบที่ ${{ github.run_number }})"
           files: output/*
+          
+      - name: Commit Latest Preview to Repository
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          mkdir -p docs
+          if [ -f output/latest_preview.png ]; then
+            cp output/latest_preview.png docs/latest_preview.png
+            git add docs/latest_preview.png
+            git diff --staged --quiet || (git commit -m "chore: update latest report preview [skip ci]" && git push)
+          fi
+
+      - name: Send Release Notification to LINE
+        env:
+          LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
+          LINE_USER_ID: ${{ secrets.LINE_USER_ID }}
+        run: |
+          python line_notifier.py
