@@ -2,33 +2,20 @@
 LINE Notifier Module
 Sends the Cyber Threat Intelligence Daily Digest notification to LINE chat via Messaging API
 using Push (specific user/group ID) or Broadcast.
-Sends the 1-page preview image and the GitHub Releases download link.
+Sends ONLY the 1-page preview image (no text message).
 """
-from datetime import datetime
-from typing import Optional
 import os
 import requests
 
 DEFAULT_IMAGE_URL = "https://raw.githubusercontent.com/Nuttoza/cyber-news-digest/main/docs/latest_preview.png"
-GITHUB_RELEASES_URL = "https://github.com/Nuttoza/cyber-news-digest/releases"
-
-def format_line_message(release_url: str = GITHUB_RELEASES_URL) -> str:
-    """Formats notification containing the date and the release page download link."""
-    today_str = datetime.now().strftime("%d/%m/%Y")
-    return (
-        f"รายงานสถานการณ์ข่าวภัยคุกคามทางไซเบอร์ ประจำวันที่ {today_str}\n\n"
-        f"ติดตามและดาวน์โหลดเอกสาร (Word / PDF) ได้ที่หน้า Release:\n"
-        f"{release_url}"
-    )
 
 def send_to_line(
     access_token: str,
     user_id: str = "",
-    image_url: str = DEFAULT_IMAGE_URL,
-    release_url: str = GITHUB_RELEASES_URL
+    image_url: str = DEFAULT_IMAGE_URL
 ) -> bool:
     """
-    Sends the preview image and release link notification to LINE.
+    Sends ONLY the preview image of the report to LINE.
     If user_id is provided, sends via Push (User ID 'U...' or Group ID 'C...').
     Otherwise, sends via Broadcast to all users/groups who added the bot.
     """
@@ -42,7 +29,7 @@ def send_to_line(
     }
 
     messages = []
-    # 1. Image preview of the 1-page report
+    # Send image only
     if image_url and image_url.startswith("https://"):
         messages.append({
             "type": "image",
@@ -50,12 +37,9 @@ def send_to_line(
             "previewImageUrl": image_url
         })
 
-    # 2. Text message with release page download link
-    message_text = format_line_message(release_url)
-    messages.append({
-        "type": "text",
-        "text": message_text
-    })
+    if not messages:
+        print("[-] LINE notification skipped: No valid image URL provided.")
+        return False
 
     payload = {
         "messages": messages
@@ -73,7 +57,7 @@ def send_to_line(
     try:
         response = requests.post(url, headers=headers, json=payload, timeout=20)
         if response.status_code == 200:
-            print(f"[+] ส่งข้อความและรูปภาพพรีวิวเข้า LINE สำเร็จ ({method_name})")
+            print(f"[+] ส่งรูปภาพพรีวิวเข้า LINE สำเร็จ ({method_name})")
             return True
         else:
             print(f"[-] แจ้งเตือน LINE ล้มเหลว (HTTP {response.status_code}): {response.text}")
