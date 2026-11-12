@@ -9,7 +9,7 @@ import json
 import os
 import sys
 
-from docx_generator import create_cyber_digest_docx
+from docx_generator import create_cyber_digest_docx, get_thai_filename_stem
 from feeds import get_top_cyber_news
 from summarizer import process_all_articles
 
@@ -132,11 +132,13 @@ def main():
             except Exception:
                 pass
 
-    docx_file = os.path.join(output_dir, f"Cyber_Threat_Digest_{today_str}.docx")
-    pdf_file = os.path.join(output_dir, f"Cyber_Threat_Digest_{today_str}.pdf")
+    now = datetime.now()
+    file_stem = get_thai_filename_stem(now)
+    docx_file = os.path.join(output_dir, f"{file_stem}.docx")
+    pdf_file = os.path.join(output_dir, f"{file_stem}.pdf")
 
     # 1. Generate DOCX
-    create_cyber_digest_docx(processed, docx_file, date_str=today_str)
+    create_cyber_digest_docx(processed, docx_file)
     print(f"[+] บันทึกเอกสาร Word (.docx) เรียบร้อย: {docx_file}")
 
     # 2. Convert to PDF
