@@ -23,7 +23,7 @@ try:
 except ImportError:
     HAS_PYTHAINLP = False
 
-FONT_NAME = "TH SarabunPSK"
+FONT_NAME = "TH Sarabun New"
 
 THAI_SHORT_MONTHS = [
     "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.",
