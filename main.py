@@ -91,17 +91,17 @@ def main():
 
     print("================================================================================")
     print("รายงานสรุปข่าวภัยคุกคามทางไซเบอร์ประจำวัน (รอบ 24 ชม.)")
-    print(f"ช่วงเวลาย้อนหลัง: {hours} ชั่วโมง | จำนวนข่าวที่ต้องการ: {count} ข่าว")
+    print(f"ช่วงเวลาย้อนหลัง: {hours} ชั่วโมง | เป้าหมาย: 3-5 ข่าวที่ไม่ซ้ำกัน (สูงสุด {count} ข่าว)")
     print(f"AI Model: {model_name} | API Key ตรวจพบ: {'ใช่ (เชื่อมต่อ AI)' if api_key.strip() else 'ยังไม่ได้ระบุ (ใช้ Heuristic Fallback)'}")
     print("================================================================================")
 
-    print("\n[1/3] กำลังดึงข่าวจากแหล่งข้อมูลระดับโลก (RSS Feeds)...")
-    raw_articles = get_top_cyber_news(feed_sources, time_window_hours=hours, top_n=count)
+    print("\n[1/3] กำลังดึงข่าวจากแหล่งข้อมูลระดับโลก (RSS Feeds) พร้อมตรวจสอบ IOC และกำจัดข่าวซ้ำ...")
+    raw_articles = get_top_cyber_news(feed_sources, time_window_hours=hours, top_n=count, min_stories=3)
     if not raw_articles:
         print("[-] ไม่พบข่าวใหม่ในช่วงเวลาดังกล่าว")
         sys.exit(0)
 
-    print(f"[+] คัดเลือกข่าวที่มีนัยสำคัญระดับสูงได้ {len(raw_articles)} ข่าว")
+    print(f"[+] คัดเลือกข่าวที่ไม่ซ้ำซ้อนและมีรายละเอียด/IOC สมบูรณ์ที่สุดได้ {len(raw_articles)} ข่าว")
 
     print("\n[2/3] กำลังวิเคราะห์ แปลสรุปภาษาไทย วิเคราะห์ผลกระทบความมั่นคงไทย และสกัด IOC...")
     processed = process_all_articles(raw_articles, api_key=api_key, model_name=model_name)
