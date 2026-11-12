@@ -122,6 +122,16 @@ def main():
     print("\n================================================================================")
     print("\n[3/3] กำลังสร้างเอกสาร Word (.docx) และส่งออกเป็น PDF (.pdf)...")
     today_str = datetime.now().strftime("%Y-%m-%d")
+    
+    # Ensure output directory exists and clean out any old files from previous dates
+    os.makedirs(output_dir, exist_ok=True)
+    for old_file in os.listdir(output_dir):
+        if old_file.endswith(".docx") or old_file.endswith(".pdf") or old_file.startswith("~$"):
+            try:
+                os.remove(os.path.join(output_dir, old_file))
+            except Exception:
+                pass
+
     docx_file = os.path.join(output_dir, f"Cyber_Threat_Digest_{today_str}.docx")
     pdf_file = os.path.join(output_dir, f"Cyber_Threat_Digest_{today_str}.pdf")
 
