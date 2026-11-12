@@ -1,9 +1,9 @@
 """
 DOCX Generator Module
 Generates a cleanly formatted Microsoft Word document (.docx)
-using TH Sarabun New font adhering to the official Cyber Center (ศซภ.ทอ./สสท.กห.) template.
+using TH Sarabun New font adhering to the official Cyber Center (ศซภ.สสท.กห.) template.
 """
-from datetime import datetime
+from datetime import date, datetime
 import os
 from typing import Any, Dict, List, Optional
 import docx
@@ -69,7 +69,7 @@ def set_table_borders(table, color: str = "7F7F7F", sz: str = "4", val: str = "s
             borders.append(border)
         tblPr[0].append(borders)
 
-def set_cell_margins(cell, top: int = 25, bottom: int = 25, left: int = 35, right: int = 35):
+def set_cell_margins(cell, top: int = 15, bottom: int = 15, left: int = 25, right: int = 25):
     """Sets inner padding/margins of a table cell in dxa (twips)."""
     tcPr = cell._element.get_or_add_tcPr()
     tcMar = OxmlElement('w:tcMar')
@@ -111,7 +111,7 @@ def set_row_cell_widths(row, col_widths_dxa: List[int]):
         new_tcW.set(qn('w:type'), 'dxa')
         tcPr.append(new_tcW)
 
-def add_hyperlink(paragraph, url: str, text: str, font_name: str = FONT_NAME, size_pt: float = 12.5, color_rgb: str = "2E75B6"):
+def add_hyperlink(paragraph, url: str, text: str, font_name: str = FONT_NAME, size_pt: float = 11.5, color_rgb: str = "2E75B6"):
     """Adds a clickable hyperlink styled with TH Sarabun New."""
     if not url:
         run = paragraph.add_run(text)
@@ -155,7 +155,7 @@ def add_hyperlink(paragraph, url: str, text: str, font_name: str = FONT_NAME, si
     paragraph._p.append(hyperlink)
 
 def get_thai_buddhist_date(dt: Optional[datetime] = None) -> str:
-    """Returns date in Thai Buddhist Era format (e.g. 11 พฤศจิกายน 2569)."""
+    """Returns date in Thai Buddhist Era format (e.g. 12 พฤศจิกายน 2569)."""
     if dt is None:
         dt = datetime.now()
     thai_months = [
@@ -166,14 +166,26 @@ def get_thai_buddhist_date(dt: Optional[datetime] = None) -> str:
     month_th = thai_months[dt.month - 1]
     return f"{dt.day} {month_th} {year_be}"
 
-def create_cyber_digest_docx(articles: List[Dict[str, Any]], output_path: str, date_str: str = "", logo_path: Optional[str] = None, issue_no: str = "01/2569") -> str:
+def calculate_issue_no(dt: Optional[datetime] = None) -> str:
+    """Calculates issue number, e.g. 01/2569, 02/2569... based on date."""
+    if dt is None:
+        dt = datetime.now()
+    year_be = dt.year + 543
+    # Nov 10 was issue 0, Nov 11 was issue 1 (01/2569), Nov 12 is issue 2 (02/2569)
+    base_date = date(2026, 11, 10)
+    current_date = dt.date() if isinstance(dt, datetime) else dt
+    diff_days = (current_date - base_date).days
+    issue_num = max(1, diff_days)
+    return f"{issue_num:02d}/{year_be}"
+
+def create_cyber_digest_docx(articles: List[Dict[str, Any]], output_path: str, date_str: str = "", logo_path: Optional[str] = None, issue_no: Optional[str] = None) -> str:
     """
     Creates the official Cyber Threat Digest Word document (.docx)
-    matching the exact template (Portrait A4, 6-column landscape table, Cyber Center emblem).
+    matching the latest Cyber Center template (Portrait A4, 6 columns, exactly 1 page).
     """
     doc = Document()
 
-    # Portrait A4 with compact margins to ensure 5 stories fit on 1 page
+    # Portrait A4 with compact margins
     section = doc.sections[0]
     section.orientation = WD_ORIENT.PORTRAIT
     section.page_width = Inches(8.27)
@@ -183,7 +195,10 @@ def create_cyber_digest_docx(articles: List[Dict[str, Any]], output_path: str, d
     section.left_margin = Inches(0.35)
     section.right_margin = Inches(0.35)
 
-    thai_date_str = get_thai_buddhist_date()
+    now = datetime.now()
+    thai_date_str = get_thai_buddhist_date(now)
+    if not issue_no:
+        issue_no = calculate_issue_no(now)
 
     if not logo_path:
         default_logo = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "logo.png")
@@ -228,33 +243,18 @@ def create_cyber_digest_docx(articles: List[Dict[str, Any]], output_path: str, d
     r_t2 = p_title2.add_run(f"ประจำวันที่ {thai_date_str}")
     apply_thai_font(r_t2, size_pt=16.5, bold=True, color_rgb=RGBColor(20, 20, 20))
 
-    # 2. Subheader Table (borderless): Left: "ที่ 01/2569", Right: date
-    sub_table = doc.add_table(rows=1, cols=2)
-    sub_table.alignment = WD_TABLE_ALIGNMENT.CENTER
-    sub_table.autofit = False
-    set_table_grid(sub_table, [5499, 5499])
-    set_row_cell_widths(sub_table.rows[0], [5499, 5499])
+    # 2. Subheader: "ที่ 02/2569"
+    p_sub = doc.add_paragraph()
+    p_sub.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    p_sub.paragraph_format.space_before = Pt(2)
+    p_sub.paragraph_format.space_after = Pt(2)
+    p_sub.paragraph_format.line_spacing = Pt(13)
+    r_sub = p_sub.add_run(f"ที่ {issue_no}")
+    apply_thai_font(r_sub, size_pt=14, bold=True)
 
-    c0 = sub_table.rows[0].cells[0]
-    p_c0 = c0.paragraphs[0]
-    p_c0.paragraph_format.space_before = Pt(2)
-    p_c0.paragraph_format.space_after = Pt(2)
-    p_c0.paragraph_format.line_spacing = Pt(13)
-    r_c0 = p_c0.add_run(f"ที่ {issue_no}")
-    apply_thai_font(r_c0, size_pt=14, bold=True)
-
-    c1 = sub_table.rows[0].cells[1]
-    p_c1 = c1.paragraphs[0]
-    p_c1.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-    p_c1.paragraph_format.space_before = Pt(2)
-    p_c1.paragraph_format.space_after = Pt(2)
-    p_c1.paragraph_format.line_spacing = Pt(13)
-    r_c1 = p_c1.add_run(thai_date_str)
-    apply_thai_font(r_c1, size_pt=14, bold=True)
-
-    # 3. Main 6-column table with exact dxa widths from template:
-    # [738, 2307, 1080, 2520, 2553, 1800] -> Total = 10998 dxa (7.6375 inches)
-    col_widths_dxa = [738, 2307, 1080, 2520, 2553, 1800]
+    # 3. Main 6-column table with exact dxa widths from latest template:
+    # ['738', '2307', '1270', '2520', '2553', '1407'] -> Total = 10795 dxa (7.496 inches)
+    col_widths_dxa = [738, 2307, 1270, 2520, 2553, 1407]
 
     table = doc.add_table(rows=1, cols=6)
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
@@ -265,9 +265,9 @@ def create_cyber_digest_docx(articles: List[Dict[str, Any]], output_path: str, d
     headers = [
         "ลำดับ",
         "หัวข้อข่าว",
-        "IOC",
+        "ตัวบ่งชี้ (IOC)",
         "สาระสำคัญ / ผลกระทบ",
-        "แนวทางป้องกัน / ข้อเสนอแนะ",
+        "แนวทางป้องกัน",
         "แหล่งข่าว"
     ]
 
@@ -279,7 +279,7 @@ def create_cyber_digest_docx(articles: List[Dict[str, Any]], output_path: str, d
     for i, title in enumerate(headers):
         cell = hdr_row.cells[i]
         set_cell_background(cell, "1F4E79")
-        set_cell_margins(cell, top=30, bottom=30, left=25, right=25)
+        set_cell_margins(cell, top=25, bottom=25, left=20, right=20)
         cell.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
 
         p = cell.paragraphs[0]
@@ -319,7 +319,7 @@ def create_cyber_digest_docx(articles: List[Dict[str, Any]], output_path: str, d
         r1 = p1.add_run(item.get("title", ""))
         apply_thai_font(r1, size_pt=11.5, bold=True, color_rgb=RGBColor(10, 10, 10))
 
-        # Col 2: IOC (Light Amber Background #FBF2D3)
+        # Col 2: ตัวบ่งชี้ (IOC) - Light Amber Background #FBF2D3
         c2 = row.cells[2]
         c2.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
         set_cell_background(c2, "FBF2D3")
@@ -357,7 +357,7 @@ def create_cyber_digest_docx(articles: List[Dict[str, Any]], output_path: str, d
             r3 = p3.add_run(b_text)
             apply_thai_font(r3, size_pt=11, color_rgb=RGBColor(15, 15, 15))
 
-        # Col 4: แนวทางป้องกัน / ข้อเสนอแนะ
+        # Col 4: แนวทางป้องกัน
         c4 = row.cells[4]
         c4.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
         set_cell_margins(c4, top=15, bottom=15, left=25, right=25)
