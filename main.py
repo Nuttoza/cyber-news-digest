@@ -145,6 +145,18 @@ def main():
     pdf_success = convert_to_pdf(docx_file, pdf_file)
     if pdf_success:
         print(f"[+] บันทึกเอกสาร PDF (.pdf) เรียบร้อย: {pdf_file}")
+        # 3. Generate preview image of the report page
+        try:
+            import pymupdf
+            doc = pymupdf.open(pdf_file)
+            if len(doc) > 0:
+                page = doc[0]
+                pix = page.get_pixmap(dpi=150)
+                preview_png = os.path.join(output_dir, "latest_preview.png")
+                pix.save(preview_png)
+                print(f"[+] บันทึกรูปภาพพรีวิวหน้าเอกสารเรียบร้อย: {preview_png}")
+        except Exception as e:
+            print(f"[-] Warning: ไม่สามารถสร้างรูปพรีวิวได้: {e}")
     else:
         print("[-] ไม่สามารถแปลงเป็นไฟล์ PDF ได้ กรุณาเปิดไฟล์ .docx ในโปรแกรม Word แล้ว Save as PDF")
 
