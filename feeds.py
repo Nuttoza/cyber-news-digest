@@ -1,7 +1,10 @@
 """
 Feeds Module
 Fetches, filters (24-48 hours), deduplicates by IOC and threat topic,
-and selects the top 3-5 most detailed, non-overlapping cybersecurity news stories.
+and selects 3-5 cybersecurity news stories with priority on:
+1. Vendors/Products: Palo Alto Networks, Fortinet, Cisco.
+2. Critical/High-danger threats: 0-day, active exploitation, KEV, remote code execution.
+3. If no priority vendor stories exist, selects other critical/dangerous threats.
 """
 import calendar
 from datetime import datetime, timezone, timedelta
@@ -16,26 +19,83 @@ from dateutil import parser as date_parser
 
 from ioc_extractor import extract_iocs_from_text
 
-# Keyword weights for threat ranking
+# Priority vendors & products requested by user (Palo Alto, Fortinet, Cisco)
+PRIORITY_VENDORS = {
+    # Palo Alto Networks
+    "palo alto": 50,
+    "palo": 40,
+    "pan-os": 50,
+    "panos": 50,
+    "globalprotect": 50,
+    "cortex xdr": 40,
+    "prisma access": 40,
+    "prisma cloud": 40,
+    "wildfire": 35,
+    "expedition": 40,
+
+    # Fortinet
+    "fortinet": 50,
+    "fortios": 50,
+    "fortigate": 50,
+    "fortimanager": 50,
+    "fortianalyzer": 40,
+    "forticlient": 45,
+    "fortisiem": 40,
+    "fortiweb": 40,
+    "fortimail": 35,
+
+    # Cisco
+    "cisco": 50,
+    "ios xe": 50,
+    "ios-xe": 50,
+    "ios xr": 45,
+    "anyconnect": 50,
+    "cisco secure client": 45,
+    "firepower": 45,
+    "cisco asa": 50,
+    "broadworks": 45,
+    "webex": 35,
+    "duo security": 35,
+    "cisco talos": 30
+}
+
+# High-severity / extreme danger keywords ("อันตรายมากๆ")
 SEVERITY_KEYWORDS = {
-    "zero-day": 12,
-    "0-day": 12,
-    "actively exploited": 10,
-    "remote code execution": 9,
-    "rce": 9,
-    "ransomware": 8,
-    "critical vulnerability": 8,
-    "supply chain": 7,
-    "data breach": 6,
-    "backdoor": 6,
-    "espionage": 6,
-    "apt": 5,
-    "malware": 5,
-    "stealer": 5,
+    # Active exploitation / 0-day (อันตรายสูงสุด)
+    "zero-day": 30,
+    "0-day": 30,
+    "actively exploited": 30,
+    "active exploitation": 30,
+    "under active exploit": 30,
+    "in the wild": 25,
+    "cisa kev": 25,
+    "known exploited": 25,
+    "mass exploitation": 22,
+
+    # Critical impact (RCE, Unauthenticated, Max Severity)
+    "remote code execution": 22,
+    "rce": 22,
+    "unauthenticated": 20,
+    "pre-auth": 20,
+    "pre-authentication": 20,
+    "arbitrary code": 20,
+    "critical vulnerability": 18,
+    "maximum severity": 18,
+    "cvss 9": 18,
+    "cvss 10": 18,
+
+    # Severe attacks & actor threats
+    "ransomware": 15,
+    "supply chain attack": 15,
+    "backdoor": 14,
+    "nation-state": 12,
+    "apt": 10,
+    "privilege escalation": 10,
+    "authentication bypass": 12,
+    "auth bypass": 12,
+    "data breach": 8,
     "cve-": 6,
-    "exploit": 4,
-    "phishing": 3,
-    "ddos": 2
+    "exploit": 5
 }
 
 # Major entity keywords to detect duplicate topic coverage across different news outlets
@@ -45,8 +105,9 @@ COMMON_ENTITIES = [
     "screenconnect", "xen orchestra", "citrix", "ivanti", "outlook",
     "microsoft exchange", "exchange server", "sharepoint", "near ai",
     "sglang", "qubole", "ebpf", "baker tilly", "qlik sense", "asus",
-    "whitearmor", "qilin", "turla", "antifox", "fortinet", "palo alto",
-    "crowdstrike", "checkpoint", "sonicwall", "confluence", "jira", "gitlab"
+    "whitearmor", "qilin", "turla", "antifox", "fortinet", "fortios",
+    "fortigate", "palo alto", "pan-os", "globalprotect", "crowdstrike",
+    "checkpoint", "sonicwall", "confluence", "jira", "gitlab"
 ]
 
 def clean_html(raw_html: str) -> str:
@@ -86,13 +147,38 @@ def parse_entry_datetime(entry: Any) -> Optional[datetime]:
 
     return None
 
+def check_priority_vendor(text: str) -> bool:
+    """Checks if text mentions Palo Alto Networks, Fortinet, or Cisco products."""
+    text_lower = text.lower()
+    for vendor_kw in PRIORITY_VENDORS:
+        pattern = r"\b" + re.escape(vendor_kw) + r"\b"
+        if re.search(pattern, text_lower):
+            return True
+    return False
+
 def calculate_article_score(title: str, summary: str) -> int:
-    """Calculates an importance score based on threat intelligence keywords."""
+    """
+    Calculates an importance score based on:
+    1. Priority vendors (Palo Alto, Fortinet, Cisco)
+    2. High severity / dangerous threat keywords
+    """
     combined = (title + " " + summary).lower()
+    title_lower = title.lower()
     score = 0
+
+    # 1. Priority Vendors Boost
+    for kw, weight in PRIORITY_VENDORS.items():
+        pattern = r"\b" + re.escape(kw) + r"\b"
+        if re.search(pattern, title_lower):
+            score += weight + 30  # Stronger boost if mentioned in title
+        elif re.search(pattern, combined):
+            score += weight
+
+    # 2. High Severity / Extreme Danger Keywords
     for keyword, weight in SEVERITY_KEYWORDS.items():
         if keyword in combined:
             score += weight
+
     if re.search(r"cve-\d{4}-\d{4,}", combined):
         score += 8
     return score
@@ -108,19 +194,26 @@ def extract_article_entities(title: str, summary: str) -> Set[str]:
 
 def get_article_detail_score(article: Dict[str, Any]) -> float:
     """
-    Evaluates how detailed an article is.
-    Heavily rewards presence of CVEs and unique IOCs, content depth, and threat severity.
-    Used to pick the superior article when duplicates on the same story exist.
+    Evaluates how detailed and critical an article is.
+    Heavily rewards:
+    1. Priority vendors (Palo Alto, Fortinet, Cisco) -> +150 bonus
+    2. CVEs and IOCs presence
+    3. Threat severity and content depth
     """
     iocs = article.get("extracted_iocs", {})
     cves = iocs.get("cves", [])
     total_iocs = sum(len(v) for v in iocs.values())
     summary_len = len(article.get("summary", ""))
 
+    text = (article.get("title", "") + " " + article.get("summary", "")).lower()
+    is_priority = check_priority_vendor(text)
+    vendor_boost = 150.0 if is_priority else 0.0
+
     score = (
-        len(cves) * 35.0 +                     # More CVEs = significantly higher detail
-        total_iocs * 12.0 +                    # Other IOCs (IP, Hash)
-        article.get("score", 0) * 1.5 +        # Base threat score
+        vendor_boost +                         # Top priority for Palo, Fortinet, Cisco
+        len(cves) * 30.0 +                     # CVE presence
+        total_iocs * 10.0 +                    # Other IOCs (IP, Hash)
+        article.get("score", 0) * 1.5 +        # Base threat & severity score
         min(summary_len / 40.0, 15.0)          # Richer text content
     )
     return score
@@ -130,7 +223,7 @@ def are_articles_duplicate(a: Dict[str, Any], b: Dict[str, Any]) -> bool:
     Determines if two articles report on the same security incident/vulnerability.
     Checks:
     1. Direct IOC/CVE overlap (e.g. sharing CVE-2026-20320)
-    2. Shared specific target entities (e.g. Cisco BroadWorks, N-central, ScreenConnect)
+    2. Shared specific target entities (e.g. Cisco BroadWorks, FortiOS, N-central)
     3. High title similarity on non-generic words
     """
     # 1. Direct CVE overlap
@@ -152,7 +245,7 @@ def are_articles_duplicate(a: Dict[str, Any], b: Dict[str, Any]) -> bool:
         for e2 in ent_b:
             if " " in e1 and (e1 == e2 or e1 in e2 or e2 in e1):
                 return True
-            if e1 in ["n-central", "n-able", "screenconnect", "openwave", "maersk", "ebpf", "sglang", "xen orchestra"] and e1 == e2:
+            if e1 in ["n-central", "n-able", "screenconnect", "openwave", "maersk", "ebpf", "sglang", "xen orchestra", "fortios", "fortigate", "pan-os"] and e1 == e2:
                 return True
 
     # 4. Title keyword overlap (excluding generic security stopwords)
@@ -180,12 +273,14 @@ def are_articles_duplicate(a: Dict[str, Any], b: Dict[str, Any]) -> bool:
 def deduplicate_and_rank_articles(articles: List[Dict[str, Any]], min_n: int = 3, max_n: int = 5) -> List[Dict[str, Any]]:
     """
     Groups articles by story topic/IOC, picks the single most detailed article per cluster,
+    prioritizes Palo Alto / Fortinet / Cisco and high-danger threats,
     and returns 3 to 5 unique, non-overlapping articles.
     """
     for art in articles:
         text = art["title"] + " " + art["summary"]
         art["extracted_iocs"] = extract_iocs_from_text(text)
         art["entities"] = extract_article_entities(art["title"], art["summary"])
+        art["is_priority_vendor"] = check_priority_vendor(text)
         art["detail_score"] = get_article_detail_score(art)
 
     # Sort candidates by detail score descending
@@ -204,15 +299,16 @@ def deduplicate_and_rank_articles(articles: List[Dict[str, Any]], min_n: int = 3
         else:
             clusters.append([art])
 
-    selected: List[Dict[str, Any]] = []
-
-    # From each unique cluster, pick the article with the highest detail score (richest IOCs/info)
+    # For each cluster, pick the article with the highest detail score
+    cluster_best: List[Dict[str, Any]] = []
     for cluster in clusters:
         best_art = max(cluster, key=lambda x: x["detail_score"])
-        selected.append(best_art)
-        if len(selected) >= max_n:
-            break
+        cluster_best.append(best_art)
 
+    # Sort the unique stories by detail_score descending (which already includes vendor boost + danger score)
+    cluster_best = sorted(cluster_best, key=lambda x: x["detail_score"], reverse=True)
+
+    selected = cluster_best[:max_n]
     return selected
 
 def fetch_feed_articles(source_name: str, feed_url: str, time_window_hours: int = 24) -> List[Dict[str, Any]]:
@@ -261,6 +357,7 @@ def fetch_feed_articles(source_name: str, feed_url: str, time_window_hours: int 
 def get_top_cyber_news(feed_sources: List[Dict[str, Any]], time_window_hours: int = 24, top_n: int = 5, min_stories: int = 3) -> List[Dict[str, Any]]:
     """
     Aggregates all enabled feeds, deduplicates stories sharing the same IOC or incident,
+    prioritizes Palo Alto / Fortinet / Cisco and dangerous threats,
     and returns 3 to 5 unique, non-overlapping articles with the highest detail.
     """
     all_articles = []
@@ -275,6 +372,6 @@ def get_top_cyber_news(feed_sources: List[Dict[str, Any]], time_window_hours: in
     if not all_articles:
         return []
 
-    # Deduplicate by IOC/topic, selecting the most detailed version for each story (3 to 5 unique stories)
+    # Deduplicate and rank: Prioritize Palo/Fortinet/Cisco -> Critical/Dangerous threats -> General
     selected = deduplicate_and_rank_articles(all_articles, min_n=min_stories, max_n=top_n)
     return selected
