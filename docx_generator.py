@@ -154,6 +154,22 @@ def add_hyperlink(paragraph, url: str, text: str, font_name: str = FONT_NAME, si
     hyperlink.append(new_run)
     paragraph._p.append(hyperlink)
 
+THAI_SHORT_MONTHS = [
+    "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.",
+    "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."
+]
+
+def get_thai_filename_stem(dt: Optional[datetime] = None) -> str:
+    """
+    Returns Thai filename stem: สถานการณ์ข่าวภัยคุกคามทางไซเบอร์_{day}{short_month}{year_be}
+    Example: สถานการณ์ข่าวภัยคุกคามทางไซเบอร์_12พ.ย.2569
+    """
+    if dt is None:
+        dt = datetime.now()
+    thai_year = dt.year + 543
+    month_str = THAI_SHORT_MONTHS[dt.month - 1]
+    return f"สถานการณ์ข่าวภัยคุกคามทางไซเบอร์_{dt.day}{month_str}{thai_year}"
+
 def get_thai_buddhist_date(dt: Optional[datetime] = None) -> str:
     """Returns date in Thai Buddhist Era format (e.g. 12 พฤศจิกายน 2569)."""
     if dt is None:
