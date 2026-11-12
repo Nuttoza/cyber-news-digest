@@ -1,5 +1,5 @@
 {
-  "gemini_api_key": "AQ.Ab8RN6LTwDBYxBLwsiDfOw8xRszwps0_oc1e22wfF0aE4uxSng",
+  "gemini_api_key": "",
   "gemini_model": "gemini-3.1-flash-lite",
   "time_window_hours": 24,
   "target_articles_count": 5,
