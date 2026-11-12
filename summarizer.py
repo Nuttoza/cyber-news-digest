@@ -14,32 +14,40 @@ from ioc_extractor import extract_iocs_from_text, format_iocs_summary
 
 SYSTEM_PROMPT = """คุณคือนักวิเคราะห์ภัยคุกคามทางไซเบอร์ระดับยุทธศาสตร์ (Strategic Cyber Threat Intelligence Analyst) และผู้เชี่ยวชาญด้าน Security Operations Center (SOC)
 หน้าที่ของคุณคืออ่านข่าวความปลอดภัยทางไซเบอร์ แปลสรุปเป็นภาษาไทย วิเคราะห์ผลกระทบ และเสนอแนวทางปฏิบัติสำหรับรายงานสถานการณ์ข่าวภัยคุกคามทางไซเบอร์
-เพื่อให้เนื้อหาลงในตารางรายงาน 6 คอลัมน์ (ขนาดไม่เกิน 1 หน้ากระดาษ A4) ได้อย่างพอดี สวยงาม และกระชับ ตรงประเด็น
+เพื่อให้เนื้อหาลงในตารางรายงาน 5 คอลัมน์ (ขนาดไม่เกิน 1 หน้ากระดาษ A4) ได้อย่างพอดี สวยงาม และกระชับ ตรงประเด็น
 
 ให้ตอบกลับเป็น JSON Schema ตามรูปแบบนี้เท่านั้น:
 {
-  "thai_title": "หัวข้อข่าวภาษาไทยที่กระชับ ตรงประเด็น (ความยาวประมาณ 1-2 บรรทัด)",
+  "thai_title": "หัวข้อข่าวภาษาไทยที่กระชับ ตรงประเด็น สละสลวย (ความยาวประมาณ 1-2 บรรทัด)",
   "iocs": "รหัส CVE ที่เกี่ยวข้อง หรือชื่อมัลแวร์/กลุ่มแฮกเกอร์/เทคนิค หรือ IOC สั้นๆ (ถ้าไม่มีให้ระบุ 'ไม่มี')",
   "key_points": [
-    "สรุปสาระสำคัญและผลกระทบ ข้อ 1 (สั้นกระชับ 1 บรรทัด ไม่เกิน 12-15 คำ)",
-    "สรุปสาระสำคัญและผลกระทบ ข้อ 2 (สั้นกระชับ 1 บรรทัด ไม่เกิน 12-15 คำ)",
-    "สรุปสาระสำคัญและผลกระทบ ข้อ 3 (สั้นกระชับ 1 บรรทัด ไม่เกิน 12-15 คำ)"
+    "สรุปสาระสำคัญและผลกระทบ ข้อ 1 (ประโยคสมบูรณ์ สั้นกระชับ 1 บรรทัด ไม่เกิน 15 คำ)",
+    "สรุปสาระสำคัญและผลกระทบ ข้อ 2 (ประโยคสมบูรณ์ สั้นกระชับ 1 บรรทัด ไม่เกิน 15 คำ)",
+    "สรุปสาระสำคัญและผลกระทบ ข้อ 3 (ประโยคสมบูรณ์ สั้นกระชับ 1 บรรทัด ไม่เกิน 15 คำ)"
   ],
   "recommendations": [
-    "แนวทางป้องกัน ข้อ 1 (Actionable นำไปทำได้จริง สั้นกระชับ 1 บรรทัด ไม่เกิน 12-15 คำ)",
-    "แนวทางป้องกัน ข้อ 2 (สั้นกระชับ 1 บรรทัด ไม่เกิน 12-15 คำ)",
-    "แนวทางป้องกัน ข้อ 3 (สั้นกระชับ 1 บรรทัด ไม่เกิน 12-15 คำ)"
+    "แนวทางป้องกัน/ข้อเสนอแนะ ข้อ 1 (Actionable นำไปทำได้จริง ประโยคสมบูรณ์ สั้นกระชับ 1 บรรทัด ไม่เกิน 15 คำ)",
+    "แนวทางป้องกัน/ข้อเสนอแนะ ข้อ 2 (ประโยคสมบูรณ์ สั้นกระชับ 1 บรรทัด ไม่เกิน 15 คำ)",
+    "แนวทางป้องกัน/ข้อเสนอแนะ ข้อ 3 (ประโยคสมบูรณ์ สั้นกระชับ 1 บรรทัด ไม่เกิน 15 คำ)"
   ],
   "source": "ชื่อแหล่งข่าวสั้นๆ เช่น BleepingComputer / The Hacker News / SecurityWeek"
 }
 
-ข้อกำหนดสำคัญ:
+ข้อกำหนดสำคัญมาก:
 1. ตอบกลับเป็น JSON ภาษาไทยที่ถูกต้อง ห้ามใส่ markdown backticks ครอบ
-2. ใน 'key_points' ให้สรุปเหตุการณ์ ช่องโหว่ หรือการโจมตี และผลกระทบต่อระบบ เป็นข้อย่อยสั้นๆ 2-3 ข้อ ไม่เยิ่นเย้อ
-3. ใน 'recommendations' ให้ระบุแนวทางป้องกัน การเฝ้าระวัง หรือคำแนะนำสำหรับ SOC/System Admin เป็นข้อย่อยสั้นๆ 2-3 ข้อ (เช่น การอัปเดตแพตช์, การตรวจสอบ Log, การบล็อก IOC)
-4. ใน 'iocs' ให้ระบุรหัส CVE หรือชื่อภัยคุกคามสั้นๆ หากไม่มีให้ระบุ 'ไม่มี'
-5. ใน 'source' ให้ระบุชื่อสำนักข่าวสั้นๆ
+2. ใช้ภาษาไทยที่เป็นทางการ สละสลวย ถูกต้องตามหลักไวยากรณ์และการตัดคำภาษาไทย ไม่ตัดคำขาดตอนจนเสียความหมาย
+3. ใน 'key_points' และ 'recommendations' แต่ละข้อต้องเป็นประโยคที่สมบูรณ์ในตัวเอง ห้ามใส่สัญลักษณ์ bullet (•, -, *) และห้ามใส่เครื่องหมายขึ้นบรรทัดใหม่ (\\n) ในข้อความ
+4. ใน 'recommendations' ให้ระบุแนวทางป้องกัน การเฝ้าระวัง หรือข้อเสนอแนะสำหรับ SOC/System Admin เป็นข้อย่อยสั้นๆ 2-3 ข้อ (เช่น การอัปเดตแพตช์, การตรวจสอบ Log, การบล็อก IOC)
+5. ใน 'iocs' ให้ระบุรหัส CVE หรือชื่อภัยคุกคามสั้นๆ หากไม่มีให้ระบุ 'ไม่มี'
+6. ใน 'source' ให้ระบุชื่อสำนักข่าวสั้นๆ
 """
+
+def clean_bullet_item(text: str) -> str:
+    """Removes leading bullets/dashes/numbers and internal linebreaks from a bullet text."""
+    if not text:
+        return ""
+    cleaned = re.sub(r"^[•\-\*\d\.\s]+", "", text.strip())
+    return " ".join(cleaned.split())
 
 def call_gemini_api(api_key: str, model_name: str, article: Dict[str, Any]) -> Dict[str, Any]:
     """Calls Gemini REST API to process an article with automatic model fallback and retry."""
@@ -123,13 +131,15 @@ def summarize_article(article: Dict[str, Any], api_key: str = "", model_name: st
             if not iocs or iocs.strip() == "" or iocs.lower() in ("none", "null"):
                 iocs = regex_ioc_str if regex_ioc_str != "ไม่มี" else "ไม่มี"
 
-            key_points = ai_data.get("key_points", [])
-            if isinstance(key_points, str):
-                key_points = [k.strip("-• ") for k in key_points.split("\n") if k.strip()]
+            raw_kp = ai_data.get("key_points", [])
+            if isinstance(raw_kp, str):
+                raw_kp = raw_kp.split("\n")
+            key_points = [clean_bullet_item(k) for k in raw_kp if clean_bullet_item(k)]
 
-            recommendations = ai_data.get("recommendations", [])
-            if isinstance(recommendations, str):
-                recommendations = [r.strip("-• ") for r in recommendations.split("\n") if r.strip()]
+            raw_rec = ai_data.get("recommendations", [])
+            if isinstance(raw_rec, str):
+                raw_rec = raw_rec.split("\n")
+            recommendations = [clean_bullet_item(r) for r in raw_rec if clean_bullet_item(r)]
 
             source_name = ai_data.get("source", article.get("source", "แหล่งข่าว")).strip()
 
