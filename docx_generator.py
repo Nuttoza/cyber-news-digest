@@ -4,7 +4,13 @@ Generates a cleanly formatted Microsoft Word document (.docx)
 using TH SarabunPSK font adhering to the official Cyber Center (ศซภ.สสท.กห.) template.
 5-column layout: ลำดับ, หัวข้อข่าว (พร้อมลิงก์แหล่งข่าว), IOC, สาระสำคัญ / ผลกระทบ, แนวทางป้องกัน / ข้อเสนอแนะ
 """
-from datetime import date, datetime
+from datetime import date, datetime, timezone, timedelta
+
+THAILAND_TZ = timezone(timedelta(hours=7))
+
+def get_thailand_now() -> datetime:
+    """Returns current datetime in Thailand timezone (UTC+7)."""
+    return datetime.now(timezone.utc).astimezone(THAILAND_TZ)
 import os
 import re
 from typing import Any, Dict, List, Optional
@@ -203,7 +209,7 @@ def get_thai_filename_stem(dt: Optional[datetime] = None) -> str:
     Example: สถานการณ์ข่าวภัยคุกคามทางไซเบอร์_12พ.ย.2569
     """
     if dt is None:
-        dt = datetime.now()
+        dt = get_thailand_now()
     thai_year = dt.year + 543
     month_str = THAI_SHORT_MONTHS[dt.month - 1]
     return f"สถานการณ์ข่าวภัยคุกคามทางไซเบอร์_{dt.day}{month_str}{thai_year}"
@@ -211,7 +217,7 @@ def get_thai_filename_stem(dt: Optional[datetime] = None) -> str:
 def get_thai_buddhist_date(dt: Optional[datetime] = None) -> str:
     """Returns date in Thai Buddhist Era format (e.g. 12 พฤศจิกายน 2569)."""
     if dt is None:
-        dt = datetime.now()
+        dt = get_thailand_now()
     thai_months = [
         "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
         "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"
@@ -223,7 +229,7 @@ def get_thai_buddhist_date(dt: Optional[datetime] = None) -> str:
 def calculate_issue_no(dt: Optional[datetime] = None) -> str:
     """Calculates issue number, e.g. 01/2569, 02/2569... based on date."""
     if dt is None:
-        dt = datetime.now()
+        dt = get_thailand_now()
     year_be = dt.year + 543
     base_date = date(2026, 11, 10)
     current_date = dt.date() if isinstance(dt, datetime) else dt
@@ -253,7 +259,7 @@ def create_cyber_digest_docx(articles: List[Dict[str, Any]], output_path: str, d
     section.left_margin = Inches(0.35)
     section.right_margin = Inches(0.35)
 
-    now = datetime.now()
+    now = get_thailand_now()
     thai_date_str = get_thai_buddhist_date(now)
     if not issue_no:
         issue_no = calculate_issue_no(now)
