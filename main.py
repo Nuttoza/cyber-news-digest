@@ -9,7 +9,7 @@ import json
 import os
 import sys
 
-from docx_generator import create_cyber_digest_docx, get_thai_filename_stem
+from docx_generator import create_cyber_digest_docx, get_thai_filename_stem, get_thailand_now
 from feeds import get_top_cyber_news
 from summarizer import process_all_articles
 
@@ -121,7 +121,8 @@ def main():
 
     print("\n================================================================================")
     print("\n[3/3] กำลังสร้างเอกสาร Word (.docx) และส่งออกเป็น PDF (.pdf)...")
-    today_str = datetime.now().strftime("%Y-%m-%d")
+    now = get_thailand_now()
+    today_str = now.strftime("%Y-%m-%d")
     
     # Ensure output directory exists and clean out any old files from previous dates
     os.makedirs(output_dir, exist_ok=True)
@@ -132,7 +133,6 @@ def main():
             except Exception:
                 pass
 
-    now = datetime.now()
     file_stem = get_thai_filename_stem(now)
     docx_file = os.path.join(output_dir, f"{file_stem}.docx")
     pdf_file = os.path.join(output_dir, f"{file_stem}.pdf")
