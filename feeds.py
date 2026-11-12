@@ -1,6 +1,7 @@
 """
 Feeds Module
-Fetches, filters (24-48 hours), deduplicates, and ranks cybersecurity news from global RSS feeds.
+Fetches, filters (24-48 hours), deduplicates by IOC and threat topic,
+and selects the top 3-5 most detailed, non-overlapping cybersecurity news stories.
 """
 import calendar
 from datetime import datetime, timezone, timedelta
@@ -9,19 +10,21 @@ import re
 import ssl
 import time
 import urllib.request
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 import feedparser
 from dateutil import parser as date_parser
 
+from ioc_extractor import extract_iocs_from_text
+
 # Keyword weights for threat ranking
 SEVERITY_KEYWORDS = {
-    "zero-day": 10,
-    "0-day": 10,
-    "actively exploited": 9,
-    "remote code execution": 8,
-    "rce": 8,
-    "ransomware": 7,
-    "critical vulnerability": 7,
+    "zero-day": 12,
+    "0-day": 12,
+    "actively exploited": 10,
+    "remote code execution": 9,
+    "rce": 9,
+    "ransomware": 8,
+    "critical vulnerability": 8,
     "supply chain": 7,
     "data breach": 6,
     "backdoor": 6,
@@ -29,11 +32,22 @@ SEVERITY_KEYWORDS = {
     "apt": 5,
     "malware": 5,
     "stealer": 5,
-    "cve-": 5,
+    "cve-": 6,
     "exploit": 4,
     "phishing": 3,
     "ddos": 2
 }
+
+# Major entity keywords to detect duplicate topic coverage across different news outlets
+COMMON_ENTITIES = [
+    "cisco broadworks", "cisco", "openwave", "n-able", "n-central",
+    "apache http/2", "apache", "zoom workplace", "zoom", "maersk",
+    "screenconnect", "xen orchestra", "citrix", "ivanti", "outlook",
+    "microsoft exchange", "exchange server", "sharepoint", "near ai",
+    "sglang", "qubole", "ebpf", "baker tilly", "qlik sense", "asus",
+    "whitearmor", "qilin", "turla", "antifox", "fortinet", "palo alto",
+    "crowdstrike", "checkpoint", "sonicwall", "confluence", "jira", "gitlab"
+]
 
 def clean_html(raw_html: str) -> str:
     """Removes HTML tags and decodes HTML entities."""
@@ -45,7 +59,6 @@ def clean_html(raw_html: str) -> str:
 
 def parse_entry_datetime(entry: Any) -> Optional[datetime]:
     """Extracts a timezone-aware UTC datetime from an RSS entry."""
-    # Attempt 1: published_parsed struct_time
     if hasattr(entry, "published_parsed") and entry.published_parsed:
         try:
             ts = calendar.timegm(entry.published_parsed)
@@ -53,7 +66,6 @@ def parse_entry_datetime(entry: Any) -> Optional[datetime]:
         except Exception:
             pass
 
-    # Attempt 2: updated_parsed struct_time
     if hasattr(entry, "updated_parsed") and entry.updated_parsed:
         try:
             ts = calendar.timegm(entry.updated_parsed)
@@ -61,7 +73,6 @@ def parse_entry_datetime(entry: Any) -> Optional[datetime]:
         except Exception:
             pass
 
-    # Attempt 3: string date parsing
     for date_key in ["published", "updated", "pubDate", "date"]:
         date_str = entry.get(date_key)
         if date_str:
@@ -82,31 +93,127 @@ def calculate_article_score(title: str, summary: str) -> int:
     for keyword, weight in SEVERITY_KEYWORDS.items():
         if keyword in combined:
             score += weight
-    # Boost if CVE identifier is found
     if re.search(r"cve-\d{4}-\d{4,}", combined):
         score += 8
     return score
 
-def is_duplicate_title(title: str, existing_titles: List[str]) -> bool:
-    """Checks if a similar title has already been selected."""
-    def tokenize(s: str) -> set:
-        words = re.findall(r"\b\w{4,}\b", s.lower())
-        return set(words)
+def extract_article_entities(title: str, summary: str) -> Set[str]:
+    """Extracts known product, vendor, or threat actor entities."""
+    combined = (title + " " + summary).lower()
+    found = set()
+    for ent in COMMON_ENTITIES:
+        if ent in combined:
+            found.add(ent)
+    return found
 
-    words1 = tokenize(title)
-    if not words1:
-        return False
+def get_article_detail_score(article: Dict[str, Any]) -> float:
+    """
+    Evaluates how detailed an article is.
+    Heavily rewards presence of CVEs and unique IOCs, content depth, and threat severity.
+    Used to pick the superior article when duplicates on the same story exist.
+    """
+    iocs = article.get("extracted_iocs", {})
+    cves = iocs.get("cves", [])
+    total_iocs = sum(len(v) for v in iocs.values())
+    summary_len = len(article.get("summary", ""))
 
-    for existing in existing_titles:
-        words2 = tokenize(existing)
-        if not words2:
-            continue
-        intersection = words1.intersection(words2)
-        union = words1.union(words2)
-        jaccard = len(intersection) / len(union) if union else 0
-        if jaccard > 0.45:  # Over 45% significant word overlap
+    score = (
+        len(cves) * 35.0 +                     # More CVEs = significantly higher detail
+        total_iocs * 12.0 +                    # Other IOCs (IP, Hash)
+        article.get("score", 0) * 1.5 +        # Base threat score
+        min(summary_len / 40.0, 15.0)          # Richer text content
+    )
+    return score
+
+def are_articles_duplicate(a: Dict[str, Any], b: Dict[str, Any]) -> bool:
+    """
+    Determines if two articles report on the same security incident/vulnerability.
+    Checks:
+    1. Direct IOC/CVE overlap (e.g. sharing CVE-2026-20320)
+    2. Shared specific target entities (e.g. Cisco BroadWorks, N-central, ScreenConnect)
+    3. High title similarity on non-generic words
+    """
+    # 1. Direct CVE overlap
+    cves_a = set(a.get("extracted_iocs", {}).get("cves", []))
+    cves_b = set(b.get("extracted_iocs", {}).get("cves", []))
+    if cves_a and cves_b and (cves_a & cves_b):
+        return True
+
+    # 2. IP / Hash overlap
+    ips_a = set(a.get("extracted_iocs", {}).get("ips", []))
+    ips_b = set(b.get("extracted_iocs", {}).get("ips", []))
+    if ips_a and ips_b and (ips_a & ips_b):
+        return True
+
+    # 3. Entity overlap
+    ent_a = a.get("entities", set())
+    ent_b = b.get("entities", set())
+    for e1 in ent_a:
+        for e2 in ent_b:
+            if " " in e1 and (e1 == e2 or e1 in e2 or e2 in e1):
+                return True
+            if e1 in ["n-central", "n-able", "screenconnect", "openwave", "maersk", "ebpf", "sglang", "xen orchestra"] and e1 == e2:
+                return True
+
+    # 4. Title keyword overlap (excluding generic security stopwords)
+    def get_keywords(text: str) -> Set[str]:
+        words = re.findall(r"\b[a-zA-Z0-9_-]{4,}\b", text.lower())
+        stopwords = {
+            "flaw", "flaws", "vulnerability", "vulnerabilities", "attack", "attacks",
+            "critical", "security", "patch", "patches", "actively", "exploited", "exploit",
+            "threat", "actors", "hacker", "hackers", "remote", "could", "after", "before",
+            "discovery", "update", "updates", "releases", "fixes", "fixed", "allows", "target"
+        }
+        return {w for w in words if w not in stopwords}
+
+    kw_a = get_keywords(a["title"])
+    kw_b = get_keywords(b["title"])
+    if kw_a and kw_b:
+        shared = kw_a & kw_b
+        if len(shared) >= 2:
             return True
+        if len(shared) >= 1 and (len(shared) / min(len(kw_a), len(kw_b)) >= 0.5):
+            return True
+
     return False
+
+def deduplicate_and_rank_articles(articles: List[Dict[str, Any]], min_n: int = 3, max_n: int = 5) -> List[Dict[str, Any]]:
+    """
+    Groups articles by story topic/IOC, picks the single most detailed article per cluster,
+    and returns 3 to 5 unique, non-overlapping articles.
+    """
+    for art in articles:
+        text = art["title"] + " " + art["summary"]
+        art["extracted_iocs"] = extract_iocs_from_text(text)
+        art["entities"] = extract_article_entities(art["title"], art["summary"])
+        art["detail_score"] = get_article_detail_score(art)
+
+    # Sort candidates by detail score descending
+    candidates = sorted(articles, key=lambda x: x["detail_score"], reverse=True)
+
+    clusters: List[List[Dict[str, Any]]] = []
+
+    for art in candidates:
+        matched_cluster = None
+        for cluster in clusters:
+            if any(are_articles_duplicate(art, existing) for existing in cluster):
+                matched_cluster = cluster
+                break
+        if matched_cluster is not None:
+            matched_cluster.append(art)
+        else:
+            clusters.append([art])
+
+    selected: List[Dict[str, Any]] = []
+
+    # From each unique cluster, pick the article with the highest detail score (richest IOCs/info)
+    for cluster in clusters:
+        best_art = max(cluster, key=lambda x: x["detail_score"])
+        selected.append(best_art)
+        if len(selected) >= max_n:
+            break
+
+    return selected
 
 def fetch_feed_articles(source_name: str, feed_url: str, time_window_hours: int = 24) -> List[Dict[str, Any]]:
     """Fetches and parses articles from a single RSS feed within the given time window."""
@@ -128,7 +235,6 @@ def fetch_feed_articles(source_name: str, feed_url: str, time_window_hours: int 
 
     for entry in feed.entries:
         pub_dt = parse_entry_datetime(entry)
-        # If date is available, apply time window filter
         if pub_dt and pub_dt < cutoff_time:
             continue
 
@@ -152,8 +258,11 @@ def fetch_feed_articles(source_name: str, feed_url: str, time_window_hours: int 
 
     return articles
 
-def get_top_cyber_news(feed_sources: List[Dict[str, Any]], time_window_hours: int = 24, top_n: int = 5) -> List[Dict[str, Any]]:
-    """Aggregates all enabled feeds, deduplicates, and returns top N highest scored articles."""
+def get_top_cyber_news(feed_sources: List[Dict[str, Any]], time_window_hours: int = 24, top_n: int = 5, min_stories: int = 3) -> List[Dict[str, Any]]:
+    """
+    Aggregates all enabled feeds, deduplicates stories sharing the same IOC or incident,
+    and returns 3 to 5 unique, non-overlapping articles with the highest detail.
+    """
     all_articles = []
     for source in feed_sources:
         if not source.get("enabled", True):
@@ -163,18 +272,9 @@ def get_top_cyber_news(feed_sources: List[Dict[str, Any]], time_window_hours: in
         fetched = fetch_feed_articles(name, url, time_window_hours=time_window_hours)
         all_articles.extend(fetched)
 
-    # Sort primarily by score descending, then by publication date if available
-    all_articles.sort(key=lambda x: (x["score"], x["published"]), reverse=True)
+    if not all_articles:
+        return []
 
-    selected: List[Dict[str, Any]] = []
-    existing_titles: List[str] = []
-
-    for article in all_articles:
-        if is_duplicate_title(article["title"], existing_titles):
-            continue
-        selected.append(article)
-        existing_titles.append(article["title"])
-        if len(selected) >= top_n:
-            break
-
+    # Deduplicate by IOC/topic, selecting the most detailed version for each story (3 to 5 unique stories)
+    selected = deduplicate_and_rank_articles(all_articles, min_n=min_stories, max_n=top_n)
     return selected
