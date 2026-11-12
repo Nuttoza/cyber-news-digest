@@ -2,8 +2,8 @@ name: Daily Cyber Threat News Digest
 
 on:
   schedule:
-    # รันอัตโนมัติทุกวันเวลา 02:00 น. (เวลาไทย) / 19:00 UTC
-    - cron: '0 19 * * *'
+    # รันอัตโนมัติทุกวันเวลา 06:33 น. (เวลาไทย) / 23:33 UTC
+    - cron: '33 23 * * *'
   workflow_dispatch: # ปุ่มกดรันเองได้ตลอดเวลา
 
 permissions:
