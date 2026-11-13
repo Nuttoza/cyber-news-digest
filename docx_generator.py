@@ -270,17 +270,18 @@ def create_cyber_digest_docx(articles: List[Dict[str, Any]], output_path: str, d
             logo_path = default_logo
 
     # 1. Header Table: 1 row, 2 columns (borderless)
-    # Left column: Logo (1500 dxa); Right column: Centered titles (9400 dxa)
+    # Left column: Logo (1700 dxa = 1.18"); Right column: Centered titles (9200 dxa)
     hdr_table = doc.add_table(rows=1, cols=2)
     hdr_table.alignment = WD_TABLE_ALIGNMENT.CENTER
     hdr_table.autofit = False
-    set_table_grid(hdr_table, [1500, 9400])
-    set_row_cell_widths(hdr_table.rows[0], [1500, 9400])
+    set_table_grid(hdr_table, [1700, 9200])
+    set_row_cell_widths(hdr_table.rows[0], [1700, 9200])
 
     col_logo = hdr_table.rows[0].cells[0]
     col_title = hdr_table.rows[0].cells[1]
     col_logo.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
     col_title.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+    set_cell_margins(col_logo, top=0, bottom=0, left=0, right=0)
 
     p_logo = col_logo.paragraphs[0]
     p_logo.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -289,7 +290,7 @@ def create_cyber_digest_docx(articles: List[Dict[str, Any]], output_path: str, d
     p_logo.paragraph_format.line_spacing = None
     if logo_path and os.path.exists(logo_path):
         r_logo = p_logo.add_run()
-        r_logo.add_picture(logo_path, width=Inches(0.95))
+        r_logo.add_picture(logo_path, width=Inches(0.92))
 
     p_title1 = col_title.paragraphs[0]
     p_title1.alignment = WD_ALIGN_PARAGRAPH.CENTER
