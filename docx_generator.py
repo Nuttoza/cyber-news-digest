@@ -317,8 +317,8 @@ def create_cyber_digest_docx(articles: List[Dict[str, Any]], output_path: str, d
     apply_thai_font(r_sub, font_name=FONT_NAME, size_pt=14.5, bold=True)
 
     # 3. Main 5-column table
-    # [ลำดับ: 650, หัวข้อข่าว: 3000, ตัวบ่งชี้ (IOC): 1450, สาระสำคัญ: 2900, แนวทางป้องกัน: 2900] -> Total = 10,900 dxa (7.57 inches)
-    col_widths_dxa = [650, 3000, 1450, 2900, 2900]
+    # [ลำดับ: 750, หัวข้อข่าว: 2950, ตัวบ่งชี้ (IOC): 1400, สาระสำคัญ: 2900, แนวทางป้องกัน: 2900] -> Total = 10,900 dxa (7.57 inches)
+    col_widths_dxa = [750, 2950, 1400, 2900, 2900]
 
     table = doc.add_table(rows=1, cols=5)
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
@@ -342,14 +342,14 @@ def create_cyber_digest_docx(articles: List[Dict[str, Any]], output_path: str, d
     for i, title in enumerate(headers):
         cell = hdr_row.cells[i]
         set_cell_background(cell, "1F4E79")
-        set_cell_margins(cell, top=25, bottom=25, left=20, right=20)
+        set_cell_margins(cell, top=30, bottom=30, left=20, right=20)
         cell.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
 
         p = cell.paragraphs[0]
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         p.paragraph_format.space_before = Pt(0)
         p.paragraph_format.space_after = Pt(0)
-        p.paragraph_format.line_spacing = Pt(12)
+        p.paragraph_format.line_spacing = 1.15
         r = p.add_run(title)
         apply_thai_font(r, font_name=FONT_NAME, size_pt=13, bold=True, color_rgb=RGBColor(255, 255, 255))
 
@@ -367,7 +367,7 @@ def create_cyber_digest_docx(articles: List[Dict[str, Any]], output_path: str, d
         p0.alignment = WD_ALIGN_PARAGRAPH.CENTER
         p0.paragraph_format.space_before = Pt(0)
         p0.paragraph_format.space_after = Pt(0)
-        p0.paragraph_format.line_spacing = Pt(11)
+        p0.paragraph_format.line_spacing = 1.15
         r0 = p0.add_run(str(idx))
         apply_thai_font(r0, font_name=FONT_NAME, size_pt=12.5, bold=True)
 
@@ -379,7 +379,7 @@ def create_cyber_digest_docx(articles: List[Dict[str, Any]], output_path: str, d
         p1.alignment = WD_ALIGN_PARAGRAPH.LEFT
         p1.paragraph_format.space_before = Pt(0)
         p1.paragraph_format.space_after = Pt(2)
-        p1.paragraph_format.line_spacing = Pt(11.5)
+        p1.paragraph_format.line_spacing = 1.15
         raw_title = item.get("title", "")
         segmented_title = insert_thai_word_breaks(raw_title)
         r1 = p1.add_run(segmented_title)
@@ -392,7 +392,7 @@ def create_cyber_digest_docx(articles: List[Dict[str, Any]], output_path: str, d
         p1_link.alignment = WD_ALIGN_PARAGRAPH.LEFT
         p1_link.paragraph_format.space_before = Pt(1)
         p1_link.paragraph_format.space_after = Pt(0)
-        p1_link.paragraph_format.line_spacing = Pt(11)
+        p1_link.paragraph_format.line_spacing = 1.15
         if link_val:
             add_hyperlink(p1_link, link_val, source_val, font_name=FONT_NAME, size_pt=11, color_rgb="2E75B6")
         else:
@@ -408,7 +408,7 @@ def create_cyber_digest_docx(articles: List[Dict[str, Any]], output_path: str, d
         p2.alignment = WD_ALIGN_PARAGRAPH.LEFT
         p2.paragraph_format.space_before = Pt(0)
         p2.paragraph_format.space_after = Pt(0)
-        p2.paragraph_format.line_spacing = Pt(11)
+        p2.paragraph_format.line_spacing = 1.15
         r2 = p2.add_run(item.get("iocs", "ไม่มี"))
         apply_thai_font(r2, font_name=FONT_NAME, size_pt=11.5, color_rgb=RGBColor(15, 15, 15))
 
@@ -431,7 +431,7 @@ def create_cyber_digest_docx(articles: List[Dict[str, Any]], output_path: str, d
             p3.alignment = WD_ALIGN_PARAGRAPH.LEFT
             p3.paragraph_format.space_before = Pt(0)
             p3.paragraph_format.space_after = Pt(2)
-            p3.paragraph_format.line_spacing = Pt(11)
+            p3.paragraph_format.line_spacing = 1.15
             r3 = p3.add_run(fmt_bullet)
             apply_thai_font(r3, font_name=FONT_NAME, size_pt=11.5, color_rgb=RGBColor(15, 15, 15))
 
@@ -454,7 +454,7 @@ def create_cyber_digest_docx(articles: List[Dict[str, Any]], output_path: str, d
             p4.alignment = WD_ALIGN_PARAGRAPH.LEFT
             p4.paragraph_format.space_before = Pt(0)
             p4.paragraph_format.space_after = Pt(2)
-            p4.paragraph_format.line_spacing = Pt(11)
+            p4.paragraph_format.line_spacing = 1.15
             r4 = p4.add_run(fmt_bullet)
             apply_thai_font(r4, font_name=FONT_NAME, size_pt=11.5, color_rgb=RGBColor(15, 15, 15))
 
