@@ -1,10 +1,10 @@
 name: Daily Cyber Threat News Digest
 
 on:
-  schedule:
-    # รันอัตโนมัติทุกวันเวลา 06:33 น. (เวลาไทย) / 23:33 UTC
-    - cron: '33 23 * * *'
-  workflow_dispatch: # ปุ่มกดรันเองได้ตลอดเวลา
+  # ปิด schedule ของ GitHub ไว้ เพื่อไม่ให้รันซ้ำซ้อนกับ Google Cloud Scheduler
+  # schedule:
+  #   - cron: '33 23 * * *'
+  workflow_dispatch: # รองรับการสั่งรันจาก Google Cloud Scheduler และกดปุ่มเองบนหน้าเว็บ
 
 permissions:
   contents: write
