@@ -63,5 +63,7 @@ jobs:
         env:
           LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
           LINE_USER_ID: ${{ secrets.LINE_USER_ID }}
+          LINE_CHANNEL_ACCESS_TOKEN_2: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN_2 }}
+          LINE_USER_ID_2: ${{ secrets.LINE_USER_ID_2 }}
         run: |
           python line_notifier.py

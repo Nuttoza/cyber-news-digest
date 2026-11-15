@@ -67,10 +67,18 @@ def send_to_line(
         return False
 
 if __name__ == "__main__":
-    token = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN", "")
-    target_user = os.environ.get("LINE_USER_ID", "")
     img = os.environ.get("LINE_PREVIEW_IMAGE_URL", DEFAULT_IMAGE_URL)
-    if token:
-        send_to_line(access_token=token, user_id=target_user, image_url=img)
-    else:
-        print("[-] LINE_CHANNEL_ACCESS_TOKEN not set. Exiting without sending.")
+    bots = [
+        ("Bot 1", os.environ.get("LINE_CHANNEL_ACCESS_TOKEN", ""), os.environ.get("LINE_USER_ID", "")),
+        ("Bot 2", os.environ.get("LINE_CHANNEL_ACCESS_TOKEN_2", ""), os.environ.get("LINE_USER_ID_2", "")),
+    ]
+
+    sent_any = False
+    for bot_name, token, target_user in bots:
+        if token and token.strip():
+            print(f"[*] กำลังส่งแจ้งเตือนผ่าน {bot_name}...")
+            send_to_line(access_token=token, user_id=target_user, image_url=img)
+            sent_any = True
+
+    if not sent_any:
+        print("[-] No LINE_CHANNEL_ACCESS_TOKEN configured. Exiting without sending.")
