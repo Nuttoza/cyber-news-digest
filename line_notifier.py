@@ -69,7 +69,6 @@ def send_to_line(
 if __name__ == "__main__":
     img = os.environ.get("LINE_PREVIEW_IMAGE_URL", DEFAULT_IMAGE_URL)
     bots = [
-        ("Bot 1", os.environ.get("LINE_CHANNEL_ACCESS_TOKEN", ""), os.environ.get("LINE_USER_ID", "")),
         ("Bot 2", os.environ.get("LINE_CHANNEL_ACCESS_TOKEN_2", ""), os.environ.get("LINE_USER_ID_2", "")),
     ]
 
@@ -81,4 +80,4 @@ if __name__ == "__main__":
             sent_any = True
 
     if not sent_any:
-        print("[-] No LINE_CHANNEL_ACCESS_TOKEN configured. Exiting without sending.")
+        print("[-] No LINE_CHANNEL_ACCESS_TOKEN_2 configured. Exiting without sending.")
