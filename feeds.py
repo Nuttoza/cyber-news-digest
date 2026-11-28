@@ -2,9 +2,10 @@
 Feeds Module
 Fetches, filters (24-48 hours), deduplicates by IOC and threat topic,
 and selects 3-5 cybersecurity news stories with priority on:
-1. Vendors/Products: Palo Alto Networks, Fortinet, Cisco.
-2. Critical/High-danger threats: 0-day, active exploitation, KEV, remote code execution.
-3. If no priority vendor stories exist, selects other critical/dangerous threats.
+1. Thailand-related cybersecurity incidents/advisories (ThaiCERT, NCSA, Thai orgs).
+2. Vendors/Products: Palo Alto Networks, Fortinet, Cisco.
+3. Critical/High-danger threats: 0-day, active exploitation, KEV, remote code execution.
+4. If no priority stories exist, selects other critical/dangerous threats.
 """
 import calendar
 from datetime import datetime, timezone, timedelta
@@ -147,6 +148,27 @@ def parse_entry_datetime(entry: Any) -> Optional[datetime]:
 
     return None
 
+# Thailand-related keywords (English & Thai) to prioritize local incidents & advisories
+THAILAND_WORD_KEYWORDS = [
+    "thailand", "thai", "bangkok", "thaicert", "ncsa", "etda", "pdpa",
+    "thai sec", "bank of thailand", "kasikorn", "scb", "krungthai", "bangkok bank",
+    "ptt", "ais", "dtac", "truecorp", "chulalongkorn", "mahidol"
+]
+THAILAND_SUBSTRING_KEYWORDS = [
+    "ประเทศไทย", "ไทย", "กรุงเทพ", "สกมช",
+    ".go.th", ".co.th", ".ac.th", ".or.th", ".mi.th", ".in.th"
+]
+
+# General cybersecurity terms used to filter out non-cyber noise from Google News feeds
+CYBER_RELEVANCE_KEYWORDS = [
+    "cyber", "hack", "hacker", "hackers", "hacking", "malware", "ransomware",
+    "phishing", "breach", "data leak", "leaked", "vulnerability", "vulnerabilities",
+    "zero-day", "0-day", "cve-", "exploit", "apt", "trojan", "botnet", "ddos",
+    "infostealer", "stealer", "espionage", "backdoor", "thaicert", "ncsa",
+    "check point", "fortinet", "cisco", "palo alto", "threat actor", "scam",
+    "ไซเบอร์", "แฮก", "มัลแวร์", "ช่องโหว่", "ข้อมูลรั่ว"
+]
+
 def check_priority_vendor(text: str) -> bool:
     """Checks if text mentions Palo Alto Networks, Fortinet, or Cisco products."""
     text_lower = text.lower()
@@ -156,15 +178,39 @@ def check_priority_vendor(text: str) -> bool:
             return True
     return False
 
+def check_thailand_related(text: str) -> bool:
+    """Checks if text mentions Thailand, Thai organizations, or .th domains."""
+    text_lower = text.lower()
+    for kw in THAILAND_SUBSTRING_KEYWORDS:
+        if kw in text_lower:
+            return True
+    for kw in THAILAND_WORD_KEYWORDS:
+        pattern = r"\b" + re.escape(kw) + r"\b"
+        if re.search(pattern, text_lower):
+            return True
+    return False
+
+def is_cybersecurity_relevant(text: str) -> bool:
+    """Checks if an article from a general news feed is genuinely about cybersecurity."""
+    text_lower = text.lower()
+    return any(kw in text_lower for kw in CYBER_RELEVANCE_KEYWORDS)
+
 def calculate_article_score(title: str, summary: str) -> int:
     """
     Calculates an importance score based on:
-    1. Priority vendors (Palo Alto, Fortinet, Cisco)
-    2. High severity / dangerous threat keywords
+    1. Thailand-related cyber incidents/advisories
+    2. Priority vendors (Palo Alto, Fortinet, Cisco)
+    3. High severity / dangerous threat keywords
     """
     combined = (title + " " + summary).lower()
     title_lower = title.lower()
     score = 0
+
+    # 0. Thailand Relevance Boost
+    if check_thailand_related(title_lower):
+        score += 60
+    elif check_thailand_related(combined):
+        score += 40
 
     # 1. Priority Vendors Boost
     for kw, weight in PRIORITY_VENDORS.items():
@@ -196,9 +242,10 @@ def get_article_detail_score(article: Dict[str, Any]) -> float:
     """
     Evaluates how detailed and critical an article is.
     Heavily rewards:
-    1. Priority vendors (Palo Alto, Fortinet, Cisco) -> +150 bonus
-    2. CVEs and IOCs presence
-    3. Threat severity and content depth
+    1. Thailand-related cyber incidents/advisories -> +250 bonus
+    2. Priority vendors (Palo Alto, Fortinet, Cisco) -> +150 bonus
+    3. CVEs and IOCs presence
+    4. Threat severity and content depth
     """
     iocs = article.get("extracted_iocs", {})
     cves = iocs.get("cves", [])
@@ -207,9 +254,12 @@ def get_article_detail_score(article: Dict[str, Any]) -> float:
 
     text = (article.get("title", "") + " " + article.get("summary", "")).lower()
     is_priority = check_priority_vendor(text)
+    is_thailand = check_thailand_related(text)
+    thailand_boost = 250.0 if is_thailand else 0.0
     vendor_boost = 150.0 if is_priority else 0.0
 
     score = (
+        thailand_boost +                       # Highest priority for Thailand-related cyber news
         vendor_boost +                         # Top priority for Palo, Fortinet, Cisco
         len(cves) * 30.0 +                     # CVE presence
         total_iocs * 10.0 +                    # Other IOCs (IP, Hash)
@@ -281,6 +331,7 @@ def deduplicate_and_rank_articles(articles: List[Dict[str, Any]], min_n: int = 3
         art["extracted_iocs"] = extract_iocs_from_text(text)
         art["entities"] = extract_article_entities(art["title"], art["summary"])
         art["is_priority_vendor"] = check_priority_vendor(text)
+        art["is_thailand"] = check_thailand_related(text)
         art["detail_score"] = get_article_detail_score(art)
 
     # Sort candidates by detail score descending
@@ -305,10 +356,14 @@ def deduplicate_and_rank_articles(articles: List[Dict[str, Any]], min_n: int = 3
         best_art = max(cluster, key=lambda x: x["detail_score"])
         cluster_best.append(best_art)
 
-    # Sort the unique stories by detail_score descending (which already includes vendor boost + danger score)
+    # Sort the unique stories by detail_score descending
     cluster_best = sorted(cluster_best, key=lambda x: x["detail_score"], reverse=True)
 
-    selected = cluster_best[:max_n]
+    # Reserve up to 2 top slots for Thailand-related news (if any exist) so they are
+    # always included alongside global critical threats without crowding out all 5 slots.
+    thailand_stories = [art for art in cluster_best if art.get("is_thailand")][:2]
+    other_stories = [art for art in cluster_best if art not in thailand_stories]
+    selected = (thailand_stories + other_stories)[:max_n]
     return selected
 
 def fetch_feed_articles(source_name: str, feed_url: str, time_window_hours: int = 24) -> List[Dict[str, Any]]:
@@ -340,6 +395,12 @@ def fetch_feed_articles(source_name: str, feed_url: str, time_window_hours: int 
 
         if not title or not link:
             continue
+
+        # For general search feeds like Google News, require both Thailand & cybersecurity relevance
+        if "google news" in source_name.lower():
+            combined_text = f"{title} {summary}"
+            if not (check_thailand_related(combined_text) and is_cybersecurity_relevant(combined_text)):
+                continue
 
         score = calculate_article_score(title, summary)
 

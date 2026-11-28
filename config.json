@@ -39,6 +39,11 @@
       "name": "Krebs on Security",
       "url": "https://krebsonsecurity.com/feed/",
       "enabled": true
+    },
+    {
+      "name": "Google News (Thailand Cyber)",
+      "url": "https://news.google.com/rss/search?q=Thailand+(cyberattack+OR+ransomware+OR+%22data+breach%22+OR+cybersecurity+OR+ThaiCERT+OR+hacker)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "enabled": true
     }
   ]
 }
